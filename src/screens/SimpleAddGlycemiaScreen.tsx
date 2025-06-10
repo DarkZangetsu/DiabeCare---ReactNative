@@ -1,25 +1,38 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, ScrollView, Alert, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../components/Header';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { useGlycemia } from '../hooks/useGlycemia';
 import { GlycemiaUnit } from '../types';
+import { useToast } from '../contexts/ToastContext';
 import {
   convertToMg,
   convertFromMg,
   getGlycemiaStatus,
   validateGlycemiaValue,
-  formatGlycemiaValue
+  formatGlycemiaValue,
+  getGlycemiaWarning
 } from '../utils/glycemiaUtils';
 
 export const SimpleAddGlycemiaScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { addReading } = useGlycemia();
+  const { showSuccess, showError, showWarning, showInfo } = useToast();
   const [value, setValue] = useState('');
   const [unit, setUnit] = useState<GlycemiaUnit>('mg/dL');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handleQuickNote = (quickNote: string) => {
+    const currentNotes = notes.trim();
+    const newNotes = currentNotes
+      ? `${currentNotes}, ${quickNote}`
+      : quickNote;
+
+    setNotes(newNotes);
+    showInfo(`Note ajoutée: ${quickNote}`);
+  };
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedTime, setSelectedTime] = useState(
     new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
@@ -30,15 +43,22 @@ export const SimpleAddGlycemiaScreen: React.FC<{ navigation: any }> = ({ navigat
     const validation = validateGlycemiaValue(numericValue, unit);
 
     if (!validation.isValid) {
-      Alert.alert('Erreur', validation.message);
+      showError(validation.message);
       return;
+    }
+
+    // Vérification des valeurs extrêmes avec avertissement
+    const warningMessage = getGlycemiaWarning(numericValue, unit);
+    if (warningMessage) {
+      showWarning(warningMessage);
     }
 
     try {
       setLoading(true);
+      showInfo('Enregistrement en cours...');
 
       // Convert to mg/dL for storage
-      const valueInMg = convertToMg(numericValue, unit);
+      const valueInMg = convertToMg(Number(value), unit);
 
       await addReading({
         value: valueInMg,
@@ -48,13 +68,20 @@ export const SimpleAddGlycemiaScreen: React.FC<{ navigation: any }> = ({ navigat
         notes: notes.trim() || undefined,
       });
 
-      Alert.alert(
-        'Succès',
-        'Votre mesure de glycémie a été enregistrée',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
+      showSuccess('Mesure de glycémie enregistrée avec succès !', {
+        label: 'Voir l\'historique',
+        onPress: () => {
+          navigation.navigate('GlycemiaHistory');
+        }
+      });
+
+      // Retour automatique après un délai
+      setTimeout(() => {
+        navigation.goBack();
+      }, 2000);
+
     } catch (error) {
-      Alert.alert('Erreur', 'Impossible d\'enregistrer la mesure');
+      showError('Impossible d\'enregistrer la mesure. Veuillez réessayer.');
     } finally {
       setLoading(false);
     }
@@ -182,6 +209,7 @@ export const SimpleAddGlycemiaScreen: React.FC<{ navigation: any }> = ({ navigat
             onChangeText={setNotes}
             multiline
             textAlignVertical="top"
+            maxLength={200}
           />
         </Card>
 
@@ -190,19 +218,32 @@ export const SimpleAddGlycemiaScreen: React.FC<{ navigation: any }> = ({ navigat
           <Text style={styles.sectionTitle}>Notes rapides</Text>
           <View style={styles.quickNotesContainer}>
             {[
-              'Avant repas',
-              'Après repas',
-              'Au réveil',
-              'Avant coucher',
-              'Exercice',
-              'Stress',
+              { label: 'Avant repas', icon: 'restaurant-outline' },
+              { label: 'Après repas', icon: 'checkmark-circle-outline' },
+              { label: 'Au réveil', icon: 'sunny-outline' },
+              { label: 'Avant coucher', icon: 'moon-outline' },
+              { label: 'Après sport', icon: 'fitness-outline' },
+              { label: 'Stress', icon: 'alert-circle-outline' },
             ].map((note) => (
               <TouchableOpacity
-                key={note}
-                onPress={() => setNotes(prev => prev ? `${prev}, ${note}` : note)}
-                style={styles.quickNoteButton}
+                key={note.label}
+                onPress={() => handleQuickNote(note.label)}
+                style={[
+                  styles.quickNoteButton,
+                  notes.includes(note.label) && styles.quickNoteButtonActive
+                ]}
               >
-                <Text style={styles.quickNoteText}>{note}</Text>
+                <Ionicons
+                  name={note.icon as any}
+                  size={16}
+                  color={notes.includes(note.label) ? '#ffffff' : '#6b7280'}
+                />
+                <Text style={[
+                  styles.quickNoteText,
+                  notes.includes(note.label) && styles.quickNoteTextActive
+                ]}>
+                  {note.label}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -310,14 +351,76 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   quickNoteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#f3f4f6',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
+    gap: 6,
+  },
+  quickNoteButtonActive: {
+    backgroundColor: '#3b82f6',
   },
   quickNoteText: {
     color: '#374151',
     fontSize: 14,
+  },
+  quickNoteTextActive: {
+    color: '#ffffff',
+  },
+  notesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  addNoteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  addNoteText: {
+    color: '#3b82f6',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  notesDisplay: {
+    backgroundColor: '#f9fafb',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  notesText: {
+    color: '#111827',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  editNoteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-end',
+  },
+  editNoteText: {
+    color: '#6b7280',
+    fontSize: 12,
+  },
+  emptyNotesContainer: {
+    alignItems: 'center',
+    padding: 24,
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderStyle: 'dashed',
+  },
+  emptyNotesText: {
+    color: '#9ca3af',
+    fontSize: 14,
+    marginTop: 8,
   },
   saveButton: {
     width: '100%',

@@ -1,18 +1,24 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { Header } from '../components/Header';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { InputDialog } from '../components/InputDialog';
 import { GlycemiaChart } from '../components/GlycemiaChart';
 import { useGlycemia } from '../hooks/useGlycemia';
 import { getGlycemiaStatus } from '../utils/glycemiaUtils';
+import { useToast } from '../contexts/ToastContext';
+import { useDialog } from '../hooks/useDialog';
 
 // Removed screenWidth as it's now handled in GlycemiaChart component
 
 export const SimpleGlycemiaScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { readings, loading, getLatestReading, loadReadings, removeReading } = useGlycemia();
+  const { showSuccess, showError, showInfo } = useToast();
+  const { confirmDialog, inputDialog, confirmDelete } = useDialog();
 
   // Refresh data when screen comes into focus (but only once per focus)
   useFocusEffect(
@@ -38,23 +44,22 @@ export const SimpleGlycemiaScreen: React.FC<{ navigation: any }> = ({ navigation
   // Use the utility function for consistent status calculation
 
   const handleDeleteReading = (id: string, value: number) => {
-    Alert.alert(
-      'Supprimer la mesure',
-      `Voulez-vous vraiment supprimer cette mesure de ${value} mg/dL ?`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await removeReading(id);
-            } catch (error) {
-              Alert.alert('Erreur', 'Impossible de supprimer la mesure');
+    confirmDelete(
+      `${value} mg/dL`,
+      async () => {
+        try {
+          await removeReading(id);
+          showSuccess('Mesure supprimée avec succès', {
+            label: 'Annuler',
+            onPress: () => {
+              // Ici on pourrait implémenter un système d'undo
+              showInfo('Fonction d\'annulation à venir');
             }
-          }
+          });
+        } catch (error) {
+          showError('Impossible de supprimer la mesure');
         }
-      ]
+      }
     );
   };
 
@@ -221,6 +226,36 @@ export const SimpleGlycemiaScreen: React.FC<{ navigation: any }> = ({ navigation
         )}
         </View>
       </ScrollView>
+
+      {/* Dialogs */}
+      <ConfirmDialog
+        visible={confirmDialog.visible}
+        title={confirmDialog.config.title}
+        message={confirmDialog.config.message}
+        type={confirmDialog.config.type}
+        confirmText={confirmDialog.config.confirmText}
+        cancelText={confirmDialog.config.cancelText}
+        icon={confirmDialog.config.icon}
+        destructive={confirmDialog.config.destructive}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={confirmDialog.onCancel}
+      />
+
+      <InputDialog
+        visible={inputDialog.visible}
+        title={inputDialog.config.title}
+        message={inputDialog.config.message}
+        placeholder={inputDialog.config.placeholder}
+        defaultValue={inputDialog.config.defaultValue}
+        inputType={inputDialog.config.inputType}
+        maxLength={inputDialog.config.maxLength}
+        confirmText={inputDialog.config.confirmText}
+        cancelText={inputDialog.config.cancelText}
+        icon={inputDialog.config.icon}
+        validation={inputDialog.config.validation}
+        onConfirm={inputDialog.onConfirm}
+        onCancel={inputDialog.onCancel}
+      />
     </View>
   );
 };

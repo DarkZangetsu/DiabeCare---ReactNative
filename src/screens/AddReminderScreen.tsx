@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, ScrollView, Alert, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../components/Header';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { useReminders } from '../hooks/useReminders';
+import { useToast } from '../contexts/ToastContext';
 import { Reminder } from '../types';
 
 export const AddReminderScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { addReminder } = useReminders();
+  const { showSuccess, showError, showWarning, showInfo } = useToast();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [time, setTime] = useState('08:00');
@@ -71,24 +73,38 @@ export const AddReminderScreen: React.FC<{ navigation: any }> = ({ navigation })
       setTime(formattedTime);
       setShowCustomTime(false);
       setCustomTime('');
+      showSuccess(`Heure personnalisée définie : ${formattedTime}`);
     } else {
-      Alert.alert('Format invalide', 'Veuillez entrer une heure au format HH:MM (ex: 08:25)');
+      showError('Format invalide. Veuillez entrer une heure au format HH:MM (ex: 08:25)', {
+        label: 'Exemple',
+        onPress: () => {
+          setCustomTime('08:30');
+          showInfo('Exemple d\'heure ajouté dans le champ');
+        }
+      });
     }
   };
 
   const handleSave = async () => {
+    // Validation avec toasters
     if (!title.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer un titre pour le rappel');
+      showError('Veuillez entrer un titre pour le rappel');
       return;
     }
 
     if (!description.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer une description');
+      showError('Veuillez entrer une description');
       return;
     }
 
+    await performSave();
+  };
+
+  const performSave = async () => {
     try {
       setLoading(true);
+      showInfo('Création du rappel en cours...');
+
       await addReminder({
         title: title.trim(),
         description: description.trim(),
@@ -96,18 +112,27 @@ export const AddReminderScreen: React.FC<{ navigation: any }> = ({ navigation })
         type,
         isActive: true,
       });
-      
-      Alert.alert(
-        'Succès',
-        'Votre rappel a été créé',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
+
+      showSuccess('Rappel créé avec succès !', {
+        label: 'Voir les rappels',
+        onPress: () => {
+          navigation.navigate('Reminders');
+        }
+      });
+
+      // Retour automatique après un délai
+      setTimeout(() => {
+        navigation.goBack();
+      }, 2000);
+
     } catch (error) {
-      Alert.alert('Erreur', 'Impossible de créer le rappel');
+      showError('Impossible de créer le rappel. Veuillez réessayer.');
     } finally {
       setLoading(false);
     }
   };
+
+
 
   return (
     <View style={styles.container}>
@@ -288,6 +313,12 @@ export const AddReminderScreen: React.FC<{ navigation: any }> = ({ navigation })
                   setType(template.type as Reminder['type']);
                   setTime(template.time);
                   setShowCustomTime(false); // Fermer la saisie personnalisée
+                  showSuccess(`Modèle "${template.title}" appliqué !`, {
+                    label: 'Personnaliser',
+                    onPress: () => {
+                      showInfo('Vous pouvez maintenant modifier les détails selon vos besoins');
+                    }
+                  });
                 }}
               >
                 <Text style={styles.templateText}>{template.title}</Text>
@@ -501,5 +532,70 @@ const styles = StyleSheet.create({
   saveButton: {
     width: '100%',
     marginTop: 24,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#ffffff',
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  inputHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  addButtonText: {
+    color: '#3b82f6',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  inputDisplay: {
+    backgroundColor: '#f9fafb',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  inputText: {
+    color: '#111827',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-end',
+  },
+  editButtonText: {
+    color: '#6b7280',
+    fontSize: 12,
+  },
+  emptyInputContainer: {
+    alignItems: 'center',
+    padding: 24,
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderStyle: 'dashed',
+  },
+  emptyInputText: {
+    color: '#9ca3af',
+    fontSize: 14,
+    marginTop: 8,
   },
 });

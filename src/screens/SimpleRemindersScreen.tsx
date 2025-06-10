@@ -1,12 +1,16 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { Header } from '../components/Header';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { InputDialog } from '../components/InputDialog';
 import { Reminder } from '../types';
 import { useReminders } from '../hooks/useReminders';
+import { useToast } from '../contexts/ToastContext';
+import { useDialog } from '../hooks/useDialog';
 
 export const SimpleRemindersScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const {
@@ -18,6 +22,8 @@ export const SimpleRemindersScreen: React.FC<{ navigation?: any }> = ({ navigati
     getActiveReminders,
     getNextReminder
   } = useReminders();
+  const { showSuccess, showError, showInfo } = useToast();
+  const { confirmDialog, inputDialog, confirmDelete } = useDialog();
 
   // Refresh data when screen comes into focus
   useFocusEffect(
@@ -28,23 +34,21 @@ export const SimpleRemindersScreen: React.FC<{ navigation?: any }> = ({ navigati
   );
 
   const handleDeleteReminder = (id: string, title: string) => {
-    Alert.alert(
-      'Supprimer le rappel',
-      `Voulez-vous vraiment supprimer le rappel "${title}" ?`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await removeReminder(id);
-            } catch (error) {
-              Alert.alert('Erreur', 'Impossible de supprimer le rappel');
+    confirmDelete(
+      title,
+      async () => {
+        try {
+          await removeReminder(id);
+          showSuccess('Rappel supprimé avec succès', {
+            label: 'Annuler',
+            onPress: () => {
+              showInfo('Fonction d\'annulation à venir');
             }
-          }
+          });
+        } catch (error) {
+          showError('Impossible de supprimer le rappel');
         }
-      ]
+      }
     );
   };
 
@@ -232,6 +236,36 @@ export const SimpleRemindersScreen: React.FC<{ navigation?: any }> = ({ navigati
         />
         </View>
       </ScrollView>
+
+      {/* Dialogs */}
+      <ConfirmDialog
+        visible={confirmDialog.visible}
+        title={confirmDialog.config.title}
+        message={confirmDialog.config.message}
+        type={confirmDialog.config.type}
+        confirmText={confirmDialog.config.confirmText}
+        cancelText={confirmDialog.config.cancelText}
+        icon={confirmDialog.config.icon}
+        destructive={confirmDialog.config.destructive}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={confirmDialog.onCancel}
+      />
+
+      <InputDialog
+        visible={inputDialog.visible}
+        title={inputDialog.config.title}
+        message={inputDialog.config.message}
+        placeholder={inputDialog.config.placeholder}
+        defaultValue={inputDialog.config.defaultValue}
+        inputType={inputDialog.config.inputType}
+        maxLength={inputDialog.config.maxLength}
+        confirmText={inputDialog.config.confirmText}
+        cancelText={inputDialog.config.cancelText}
+        icon={inputDialog.config.icon}
+        validation={inputDialog.config.validation}
+        onConfirm={inputDialog.onConfirm}
+        onCancel={inputDialog.onCancel}
+      />
     </View>
   );
 };

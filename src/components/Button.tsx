@@ -3,7 +3,7 @@ import { TouchableOpacity, Text, TouchableOpacityProps, ActivityIndicator, Style
 
 interface ButtonProps extends TouchableOpacityProps {
   title: string;
-  variant?: 'primary' | 'secondary' | 'outline';
+  variant?: 'primary' | 'secondary' | 'outline' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
 }
@@ -41,7 +41,7 @@ export const Button: React.FC<ButtonProps> = ({
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === 'primary' ? 'white' : '#2563eb'}
+          color={variant === 'primary' || variant === 'danger' ? 'white' : '#2563eb'}
           size="small"
         />
       ) : (
@@ -70,6 +70,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#2563eb',
   },
+  dangerButton: {
+    backgroundColor: '#ef4444',
+  },
   smButton: {
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -94,6 +97,9 @@ const styles = StyleSheet.create({
   },
   outlineText: {
     color: '#2563eb',
+  },
+  dangerText: {
+    color: 'white',
   },
   smText: {
     fontSize: 14,

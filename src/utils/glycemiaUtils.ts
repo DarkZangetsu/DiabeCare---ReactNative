@@ -138,3 +138,37 @@ export const validateGlycemiaValue = (value: number, unit: GlycemiaUnit): { isVa
 
   return { isValid: true };
 };
+
+/**
+ * Check if glycemia value indicates hypoglycemia
+ */
+export const isHypoglycemia = (value: number, unit: GlycemiaUnit): boolean => {
+  if (unit === 'mmol/L') {
+    return value < 3.9; // < 70 mg/dL
+  } else {
+    return value < 70;
+  }
+};
+
+/**
+ * Check if glycemia value indicates severe hyperglycemia
+ */
+export const isSevereHyperglycemia = (value: number, unit: GlycemiaUnit): boolean => {
+  if (unit === 'mmol/L') {
+    return value > 16.7; // > 300 mg/dL
+  } else {
+    return value > 300;
+  }
+};
+
+/**
+ * Get glycemia warning message based on value and unit
+ */
+export const getGlycemiaWarning = (value: number, unit: GlycemiaUnit): string | null => {
+  if (isHypoglycemia(value, unit)) {
+    return `Attention : Cette valeur (${value} ${unit}) indique une hypoglycémie.`;
+  } else if (isSevereHyperglycemia(value, unit)) {
+    return `Attention : Cette valeur (${value} ${unit}) indique une hyperglycémie sévère.`;
+  }
+  return null;
+};
